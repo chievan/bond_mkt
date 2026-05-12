@@ -1,5 +1,5 @@
 from langchain_openai import ChatOpenAI
-from langchain.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
 from sqlalchemy.orm import Session
 from ..models.bond import BondYield, BondSpread
 import os
