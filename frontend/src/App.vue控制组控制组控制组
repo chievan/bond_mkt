@@ -1,0 +1,275 @@
+<script setup>
+import { ref, onMounted, computed, watch, nextTick } from 'vue'
+import axios from 'axios'
+import * as echarts from 'echarts'
+
+const yields = ref([])
+const spreads = ref([])
+const sheets = ref([])
+const currentSheet = ref('')
+const sheetData = ref([])
+const activeCharts = ref([])
+const chartRefs = ref([])
+
+const API_BASE = 'http://localhost:8000'
+
+const fetchData = async () => {
+  try {
+    const [yRes, sRes, sheetsRes] = await Promise.all([
+      axios.get(`${API_BASE}/yields`),
+      axios.get(`${API_BASE}/spreads`),
+      axios.get(`${API_BASE}/sheets`)
+    ])
+    yields.value = yRes.data
+    spreads.value = sRes.data
+    sheets.value = sheetsRes.data
+    
+    if (sheets.value.length && !currentSheet.value) {
+      currentSheet.value = sheets.value.includes('收益率曲线') ? '收益率曲线' : sheets.value[0]
+      await fetchSheetData(currentSheet.value)
+    }
+  } catch (err) {
+    console.error('Failed to fetch data', err)
+  }
+}
+
+const fetchSheetData = async (name) => {
+  currentSheet.value = name
+  try {
+    const res = await axios.get(`${API_BASE}/sheets/${encodeURIComponent(name)}`)
+    sheetData.value = res.data
+    await nextTick()
+    initDynamicCharts()
+  } catch (err) {
+    console.error('Failed to fetch sheet data', err)
+  }
+}
+
+const getStatusColor = (val, header) => {
+  if (val === null || val === undefined) return ''
+  const num = parseFloat(val)
+  if (isNaN(num)) return ''
+  if (header.includes('分位数') || (num <= 1 && num >= 0 && (header.includes('水平') || header.includes('率')))) {
+    if (num >= 0.9) return 'text-rose-500 font-bold bg-rose-500/10'
+    if (num <= 0.1) return 'text-emerald-400 font-bold bg-emerald-400/10'
+    if (num >= 0.75) return 'text-orange-400'
+    if (num <= 0.25) return 'text-cyan-400'
+  }
+  return ''
+}
+
+const initDynamicCharts = () => {
+  // Clear old charts
+  activeCharts.value.forEach(c => c.dispose())
+  activeCharts.value = []
+
+  const chartContainers = document.querySelectorAll('.dynamic-chart')
+  chartContainers.forEach((el, index) => {
+    const chart = echarts.init(el)
+    activeCharts.value.push(chart)
+    
+    // Custom logic per sheet
+    if (currentSheet.value === '收益率曲线') {
+      renderYieldCurve(chart, index)
+    } else if (currentSheet.value.includes('利差') || currentSheet.value.includes('基差')) {
+      renderSpreadLines(chart, index)
+    }
+  })
+}
+
+const renderYieldCurve = (chart, index) => {
+  const table = sheetData.value[index]
+  if (!table || !table.data.length) return
+
+  // Try to find columns for X and Y
+  const keys = Object.keys(table.data[0])
+  const xKey = keys.find(k => k.includes('期限')) || keys[0]
+  const yKey = keys.find(k => k.includes('收益率')) || keys[1]
+
+  chart.setOption({
+    title: { text: table.title, textStyle: { color: '#cbd5e1', fontSize: 14 } },
+    tooltip: { trigger: 'axis' },
+    grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+    xAxis: { type: 'category', data: table.data.map(d => d[xKey]), axisLine: { lineStyle: { color: '#475569' } } },
+    yAxis: { type: 'value', scale: true, axisLine: { lineStyle: { color: '#475569' } }, splitLine: { lineStyle: { color: '#1e293b' } } },
+    series: [{
+      data: table.data.map(d => d[yKey]),
+      type: 'line', smooth: true,
+      itemStyle: { color: '#38bdf8' },
+      areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(56, 189, 248, 0.2)' }, { offset: 1, color: 'transparent' }]) }
+    }]
+  })
+}
+
+const renderSpreadLines = (chart, index) => {
+  const table = sheetData.value[index]
+  if (!table || !table.data.length) return
+
+  const keys = Object.keys(table.data[0])
+  const xKey = keys[0]
+  const yKey = keys.find(k => k.includes('利差') || k.includes('基差') || k.includes('水平')) || keys[1]
+
+  chart.setOption({
+    title: { text: table.title, textStyle: { color: '#cbd5e1', fontSize: 14 } },
+    tooltip: { trigger: 'axis' },
+    xAxis: { type: 'category', data: table.data.map(d => d[xKey]), axisLine: { lineStyle: { color: '#475569' } } },
+    yAxis: { type: 'value', scale: true, splitLine: { lineStyle: { color: '#1e293b' } } },
+    series: [{
+      data: table.data.map(d => d[yKey]),
+      type: 'bar', itemStyle: { color: '#818cf8' }
+    }]
+  })
+}
+
+onMounted(() => {
+  fetchData()
+  window.addEventListener('resize', () => activeCharts.value.forEach(c => c.resize()))
+})
+</script>
+
+<template>
+  <div class="min-h-screen bg-[#0f172a] text-slate-200 font-sans">
+    <!-- Sidebar Navigation -->
+    <aside class="fixed left-0 top-0 h-full w-64 bg-slate-900/50 border-r border-slate-800 p-6 z-20 backdrop-blur-xl">
+      <div class="flex items-center gap-3 mb-12">
+        <div class="w-10 h-10 bg-bond-primary rounded-xl flex items-center justify-center shadow-lg shadow-bond-primary/20">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="m13 13 9 9"/></svg>
+        </div>
+        <h1 class="text-xl font-bold tracking-tight">债市监控</h1>
+      </div>
+
+      <nav class="space-y-2">
+        <button 
+          v-for="sheet in sheets" 
+          :key="sheet"
+          @click="fetchSheetData(sheet)"
+          :class="[
+            'w-full text-left px-4 py-3 rounded-xl transition-all flex items-center gap-3 group',
+            currentSheet === sheet 
+              ? 'bg-bond-primary/10 text-bond-primary border border-bond-primary/20 shadow-lg shadow-bond-primary/5' 
+              : 'text-slate-400 hover:bg-slate-800/50 hover:text-slate-200 border border-transparent'
+          ]"
+        >
+          <span class="w-1.5 h-1.5 rounded-full transition-transform group-hover:scale-150" :class="currentSheet === sheet ? 'bg-bond-primary shadow-[0_0_8px_rgba(56,189,248,0.8)]' : 'bg-slate-600'"></span>
+          {{ sheet }}
+        </button>
+      </nav>
+
+      <div class="absolute bottom-8 left-6 right-6">
+        <div class="glass-card p-4 text-xs text-slate-500 border-slate-800/50">
+          <p class="mb-2">数据同步状态</p>
+          <div class="flex items-center gap-2">
+            <span class="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+            <span class="text-slate-300">同花顺接口已连接 (Mock)</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="ml-64 p-8 min-h-screen">
+      <header class="flex justify-between items-end mb-10">
+        <div>
+          <nav class="text-sm text-slate-500 mb-2">工作空间 / 数据监控 / {{ currentSheet }}</nav>
+          <h2 class="text-4xl font-bold text-white tracking-tight">{{ currentSheet }}</h2>
+        </div>
+        <div class="flex gap-3">
+          <button @click="fetchData" class="btn-primary flex items-center gap-2 shadow-xl">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+            同步最新数据
+          </button>
+        </div>
+      </header>
+
+      <div class="grid grid-cols-1 gap-12">
+        <!-- Dashboard Blocks for each Sub-Table -->
+        <div v-for="(table, idx) in sheetData" :key="idx" class="space-y-6">
+          <div class="flex items-center justify-between">
+            <h3 class="text-xl font-semibold text-slate-200 flex items-center gap-3">
+              <span class="w-2 h-8 bg-bond-primary rounded-full"></span>
+              {{ table.title || '市场明细数据' }}
+            </h3>
+            <div class="text-xs text-slate-500 bg-slate-800/50 px-3 py-1 rounded-full border border-slate-700/50">
+              共 {{ table.data.length }} 条记录
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <!-- Left: Table -->
+            <div class="lg:col-span-8 glass-card overflow-hidden border-slate-800/50 shadow-2xl">
+              <div class="overflow-x-auto max-h-[600px] custom-scrollbar">
+                <table class="w-full text-sm text-left border-collapse">
+                  <thead class="sticky top-0 z-10">
+                    <tr class="bg-slate-800/90 backdrop-blur-md">
+                      <th v-for="header in Object.keys(table.data[0] || {})" :key="header" class="px-6 py-4 font-bold text-slate-300 border-b border-slate-700 whitespace-nowrap">
+                        {{ header }}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody class="divide-y divide-slate-800/50">
+                    <tr v-for="(row, i) in table.data" :key="i" class="hover:bg-bond-primary/5 transition-colors group">
+                      <td 
+                        v-for="header in Object.keys(table.data[0] || {})" 
+                        :key="header" 
+                        :class="[
+                          'px-6 py-4 text-slate-400 group-hover:text-slate-200 border-b border-slate-900/20 whitespace-nowrap transition-all',
+                          getStatusColor(row[header], header)
+                        ]"
+                      >
+                        {{ row[header] }}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Right: Dynamic Chart -->
+            <div class="lg:col-span-4 space-y-6">
+              <div class="glass-card p-6 h-full border-slate-800/50 shadow-xl flex flex-col">
+                <div class="dynamic-chart flex-1 min-h-[350px]"></div>
+                <div class="mt-4 p-4 bg-slate-800/30 rounded-xl border border-slate-700/30">
+                  <h4 class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">AI 智能解读</h4>
+                  <p class="text-sm text-slate-300 leading-relaxed italic">
+                    当前 {{ table.title }} 显示指标处于历史较高分位，建议关注流动性溢价。
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="!sheetData.length" class="flex flex-col items-center justify-center py-40 text-slate-500">
+          <div class="w-16 h-16 border-4 border-bond-primary/20 border-t-bond-primary rounded-full animate-spin mb-6"></div>
+          <p class="text-lg font-medium animate-pulse">正在从 Excel 镜像中提取高维数据...</p>
+        </div>
+      </div>
+    </main>
+
+    <!-- Floating AI Bubble -->
+    <div class="fixed right-8 bottom-8 z-30">
+      <button class="w-16 h-16 bg-bond-primary rounded-full shadow-2xl shadow-bond-primary/40 flex items-center justify-center hover:scale-110 transition-transform active:scale-95 group">
+        <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>
+      </button>
+    </div>
+  </div>
+</template>
+
+<style>
+.btn-primary {
+  @apply bg-bond-primary hover:bg-bond-primary/90 text-white px-6 py-2.5 rounded-xl font-bold transition-all active:scale-95;
+}
+.glass-card {
+  @apply bg-slate-900/40 backdrop-blur-xl border border-slate-700/30 rounded-3xl;
+}
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  @apply bg-slate-700 rounded-full;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+</style>
