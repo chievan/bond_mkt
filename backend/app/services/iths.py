@@ -52,7 +52,8 @@ class ITHSClient:
             try:
                 response = await client.post(url, json=payload, headers=headers)
                 return response.json()
-            except Exception:
+            except Exception as e:
+                print(f"EDB API Error: {e}")
                 return None
 
     async def fetch_history_data(self, codes: List[str], start_date: str, end_date: str):
@@ -74,7 +75,8 @@ class ITHSClient:
             try:
                 response = await client.post(url, json=payload, headers=headers)
                 return response.json()
-            except Exception:
+            except Exception as e:
+                print(f"History API Error: {e}")
                 return None
 
 # --- Real Indicator Mapping from Super Command ---
@@ -158,7 +160,7 @@ async def sync_all_curves(db: Session, date_str: str = None):
                     field = "y" + tenor.replace("Y", "")
                     
                 val_list = item.get("value", [])
-                if val_list:
+                if val_list and val_list[0] is not None and float(val_list[0]) > 0:
                     yield_data[field] = float(val_list[0])
         
         if len(yield_data) > 2: # Has at least one yield point
@@ -215,8 +217,10 @@ async def sync_bond_history(db: Session, codes: List[str]):
                 
                 try:
                     date_val = datetime.strptime(times[i], "%Y-%m-%d").date()
-                    db_entry = BondHistory(code=actual_code, date=date_val, yield_val=float(yields[i]))
-                    db.merge(db_entry)
+                    val = float(yields[i])
+                    if val > 0: # Only save if we have a real yield
+                        db_entry = BondHistory(code=actual_code, date=date_val, yield_val=val)
+                        db.merge(db_entry)
                 except Exception as e:
                     print(f"Error saving history row: {e}")
         

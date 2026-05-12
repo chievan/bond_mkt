@@ -147,8 +147,14 @@ const currentTableData = computed(() => {
     
     return terms.map(term => {
         const code = typeBenchmarks[term]
-        const specificYield = bondValuations.value[props.selectedDate]?.[code]
-        const specificPrevYield = bondValuations.value[props.prevDate]?.[code]
+        
+        // Find real execution yield from historyData
+        const history = historyData.value[code] || []
+        const realRecord = history.find(r => r.date === props.selectedDate)
+        const realPrevRecord = history.find(r => r.date === props.prevDate)
+        
+        const specificYield = realRecord ? realRecord.yield : bondValuations.value[props.selectedDate]?.[code]
+        const specificPrevYield = realPrevRecord ? realPrevRecord.yield : bondValuations.value[props.prevDate]?.[code]
         
         const point = curve.find(p => p.term === term) || { yield: 0, prev_yield: 0, change: 0, percentile: 0.5 }
         
