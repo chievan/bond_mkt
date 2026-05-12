@@ -63,23 +63,22 @@ async def sync_data(date: Optional[str] = Query(None), db: Session = Depends(get
 def get_latest_date(target: Optional[str] = Query(None), db: Session = Depends(get_db)):
     from .models.bond import BondHistory
     
-    # 查找逻辑：必须 y10 字段（10Y国债）或成交收益率不为 0 的日期才是有效交易日
     if target == "history":
-        history_date = db.query(BondHistory.date).filter(BondHistory.yield_ > 0).order_by(BondHistory.date.desc()).first()
+        history_date = db.query(BondHistory.date).order_by(BondHistory.date.desc()).first()
         date_val = history_date[0] if history_date else None
     elif target == "curves":
-        yield_date = db.query(BondYield.date).filter(BondYield.y10 > 0).order_by(BondYield.date.desc()).first()
+        yield_date = db.query(BondYield.date).order_by(BondYield.date.desc()).first()
         date_val = yield_date[0] if yield_date else None
     else:
-        yield_date = db.query(BondYield.date).filter(BondYield.y10 > 0).order_by(BondYield.date.desc()).first()
-        history_date = db.query(BondHistory.date).filter(BondHistory.yield_ > 0).order_by(BondHistory.date.desc()).first()
+        # Default: Max of both
+        yield_date = db.query(BondYield.date).order_by(BondYield.date.desc()).first()
+        history_date = db.query(BondHistory.date).order_by(BondHistory.date.desc()).first()
         dates = []
         if yield_date: dates.append(yield_date[0])
         if history_date: dates.append(history_date[0])
         date_val = max(dates) if dates else None
 
     if not date_val:
-        # 如果全库都没数，才回退到今天
         return {"date": datetime.now().strftime("%Y-%m-%d")}
         
     return {"date": date_val.strftime("%Y-%m-%d") if hasattr(date_val, 'strftime') else str(date_val)}
