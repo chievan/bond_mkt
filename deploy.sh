@@ -12,7 +12,7 @@ git pull https://ghfast.top/https://github.com/chievan/bond_mkt.git main
 # 2. 更新后端依赖
 echo "📦 正在更新后端依赖..."
 cd backend
-./venv/bin/pip install -r requirements.txt
+./venv/bin/pip install --upgrade -r requirements.txt
 cd ..
 
 # 3. 编译前端
