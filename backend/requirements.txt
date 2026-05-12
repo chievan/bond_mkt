@@ -6,3 +6,5 @@ python-dotenv
 pandas
 openpyxl
 pydantic
+langchain
+langchain-openai
