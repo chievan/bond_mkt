@@ -10,6 +10,8 @@ const terms = ['1Y', '2Y', '3Y', '5Y', '7Y', '10Y', '30Y', '50Y']
 const bondTypes = ['国债', '国开债', '农发债', '口行债', '地方政府债'] // Order for the top tabs
 const sheets = ['成交情况', '中债利率曲线', '期现基差', '利差', '品种利差']
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+
 const currentSheet = ref('成交情况')
 const activeTab = ref('国债')
 const selectedDate = ref(new Date().toISOString().split('T')[0])
@@ -53,7 +55,7 @@ const allData = ref({
 
 const fetchRealData = async (date = '') => {
     try {
-        const url = date ? `http://localhost:8000/yields?date=${date}` : `http://localhost:8000/yields`
+        const url = date ? `${API_BASE}/yields?date=${date}` : `${API_BASE}/yields`
         const res = await fetch(url)
         const data = await res.json()
         if (data.curves && Object.keys(data.curves).length > 0) {
@@ -67,7 +69,7 @@ const fetchRealData = async (date = '') => {
                 const agoStr = targetDate.toISOString().split('T')[0]
                 oneWeekAgoDate.value = agoStr
                 
-                const agoRes = await fetch(`http://localhost:8000/yields?date=${agoStr}`)
+                const agoRes = await fetch(`${API_BASE}/yields?date=${agoStr}`)
                 const agoData = await agoRes.json()
                 if (agoData.curves) {
                     oneWeekAgoCurves.value = agoData.curves
@@ -93,7 +95,7 @@ const syncData = async (isManual = true) => {
 
     // 1. Try to sync real data from backend
     try {
-        const res = await fetch(`http://localhost:8000/sync?date=${selectedDate.value}`, { method: 'POST' })
+        const res = await fetch(`${API_BASE}/sync?date=${selectedDate.value}`, { method: 'POST' })
         const status = await res.json()
         if (status.status === 'success') {
             await fetchRealData(selectedDate.value)
