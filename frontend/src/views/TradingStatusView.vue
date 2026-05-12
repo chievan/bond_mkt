@@ -60,6 +60,7 @@ const COMMON_SPREADS = {
 const allBenchmarks = ref({ ...DEFAULT_BENCHMARKS })
 const historyData = ref({}) // { code: [records] }
 const bondValuations = ref({}) // { date: { code: yield } }
+const syncStatus = ref('') // New: Sync progress message
 
 const fetchHistoryFromDB = async (code) => {
     if (!code) return
@@ -432,18 +433,36 @@ const saveBenchmarks = async () => {
 
 const syncHistory = async (codes) => {
     if (!codes || codes.length === 0) return
+    const validCodes = codes.filter(c => c && c.length > 0)
+    if (validCodes.length === 0) return
+
+    syncStatus.value = `准备同步 ${validCodes.length} 只债券...`
+    
     try {
-        await fetch(`http://${window.location.hostname}:8504/sync-bond-history`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(codes)
-        })
+        for (const code of validCodes) {
+            syncStatus.value = `正在同步 ${code} ...`
+            await fetch(`http://${window.location.hostname}:8504/sync-bond-history`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify([code])
+            })
+        }
+        
+        syncStatus.value = "✅ 全部更新完毕！正在刷新界面..."
+        
         // Fetch current term's history after sync
         const activeBenchmark = allBenchmarks.value[props.activeTab]?.[selectedTerm.value]
         if (activeBenchmark) await fetchHistoryFromDB(activeBenchmark)
+        
+        // Refresh valuations for the latest state
+        await fetchSpecificValuations(props.selectedDate)
+        
         updateCharts()
+        
+        setTimeout(() => { syncStatus.value = '' }, 3000)
     } catch (e) {
         console.error("Failed to sync history:", e)
+        syncStatus.value = "❌ 同步过程中出现错误"
     }
 }
 
@@ -542,6 +561,7 @@ watch(() => [props.allCurves, props.oneWeekAgoCurves, props.activeTab, selectedT
                     <span class="text-[11px] font-black text-white uppercase tracking-widest">{{ activeTab }} 成交情况监控</span>
                 </div>
                 <div class="flex items-center gap-3">
+                  <span v-if="syncStatus" class="text-[10px] font-bold text-amber-500 animate-pulse bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">{{ syncStatus }}</span>
                   <button 
                     @click="syncHistory(Object.values(allBenchmarks[activeTab]))"
                     class="text-[9px] font-bold text-amber-500 bg-amber-500/5 hover:bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 uppercase tracking-widest transition-all active:scale-95"
