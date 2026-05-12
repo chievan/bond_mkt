@@ -59,6 +59,30 @@ async def sync_data(date: Optional[str] = Query(None), db: Session = Depends(get
     else:
         raise HTTPException(status_code=500, detail="Sync failed")
 
+@app.get("/latest-date")
+def get_latest_date(target: Optional[str] = Query(None), db: Session = Depends(get_db)):
+    from .models.bond import BondHistory
+    
+    if target == "history":
+        history_date = db.query(BondHistory.date).order_by(BondHistory.date.desc()).first()
+        date_val = history_date[0] if history_date else None
+    elif target == "curves":
+        yield_date = db.query(BondYield.date).order_by(BondYield.date.desc()).first()
+        date_val = yield_date[0] if yield_date else None
+    else:
+        # Default: Max of both
+        yield_date = db.query(BondYield.date).order_by(BondYield.date.desc()).first()
+        history_date = db.query(BondHistory.date).order_by(BondHistory.date.desc()).first()
+        dates = []
+        if yield_date: dates.append(yield_date[0])
+        if history_date: dates.append(history_date[0])
+        date_val = max(dates) if dates else None
+
+    if not date_val:
+        return {"date": datetime.now().strftime("%Y-%m-%d")}
+        
+    return {"date": date_val.strftime("%Y-%m-%d") if hasattr(date_val, 'strftime') else str(date_val)}
+
 @app.get("/yields")
 def get_yields(date: Optional[str] = Query(None), db: Session = Depends(get_db)):
     """

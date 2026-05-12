@@ -12,7 +12,7 @@ const props = defineProps({
   oneWeekAgoCurves: Object
 })
 
-const emit = defineEmits(['update:activeTab'])
+const emit = defineEmits(['update:activeTab', 'refresh-date'])
 
 // FIXED TERMS from the image provided by user
 const terms = ['1Y', '2Y', '3Y', '5Y', '7Y', '10Y', '20Y', '30Y', '50Y']
@@ -449,6 +449,9 @@ const syncHistory = async (codes) => {
         }
         
         syncStatus.value = "✅ 全部更新完毕！正在刷新界面..."
+        
+        // Signal App.vue to refresh the global date to the latest in DB
+        emit('refresh-date')
         
         // Fetch current term's history after sync
         const activeBenchmark = allBenchmarks.value[props.activeTab]?.[selectedTerm.value]

@@ -53,35 +53,34 @@ const allData = ref({
   '成交情况': generateMockTable('成交数据', 20)
 })
 
-const fetchRealData = async (date = '') => {
+const fetchRealData = async (date = null) => {
     try {
-        const url = date ? `${API_BASE}/yields?date=${date}` : `${API_BASE}/yields`
+        // 1. 如果没传日期，根据当前页面类型查最大日期
+        if (!date) {
+            const target = currentSheet.value === '成交情况' ? 'history' : 'curves'
+            const dateRes = await fetch(`${API_BASE}/latest-date?target=${target}`)
+            const dateData = await dateRes.json()
+            if (dateData.date) {
+                selectedDate.value = dateData.date
+                date = dateData.date
+            }
+        }
+
+        // 2. 获取该日期的曲线数据
+        let url = `${API_BASE}/yields?bond_type=${activeTab.value}`
+        if (date) url += `&date=${date}`
         const res = await fetch(url)
         const data = await res.json()
-        if (data.curves && Object.keys(data.curves).length > 0) {
+        
+        if (data.curves) {
             allData.value.curves = data.curves
-            if (data.date) {
-                selectedDate.value = data.date
-                
-                // Fetch One Week Ago
-                const targetDate = new Date(data.date)
-                targetDate.setDate(targetDate.getDate() - 7)
-                const agoStr = targetDate.toISOString().split('T')[0]
-                oneWeekAgoDate.value = agoStr
-                
-                const agoRes = await fetch(`${API_BASE}/yields?date=${agoStr}`)
-                const agoData = await agoRes.json()
-                if (agoData.curves) {
-                    oneWeekAgoCurves.value = agoData.curves
-                }
-            }
-            if (data.prev_date) {
-                prevDate.value = data.prev_date
-            }
+            prevDate.value = data.prev_date || ''
+            oneWeekAgoDate.value = data.one_week_ago_date || ''
+            oneWeekAgoCurves.value = data.one_week_ago_curves || {}
             return true
         }
     } catch (e) {
-        console.warn("Backend not available, using mock data")
+        console.warn("Backend not available, using mock data", e)
     }
     return false
 }
@@ -126,8 +125,12 @@ const syncData = async (isManual = true) => {
     })
 }
 
-// Initial Load
-import { onMounted } from 'vue'
+// Listen for sheet changes to jump to the latest date for that sheet
+import { onMounted, watch } from 'vue'
+watch(currentSheet, () => {
+    fetchRealData() // No date passed, so it will fetch latest for new sheet
+})
+
 onMounted(() => {
     fetchRealData()
 })
@@ -211,15 +214,17 @@ onMounted(() => {
           :prevDate="prevDate"
         />
 
-        <TradingStatusView
-          v-if="currentSheet === '成交情况'"
+        <TradingStatusView 
+          v-if="currentSheet === '成交情况'" 
           :allCurves="allData.curves"
-          :oneWeekAgoCurves="oneWeekAgoCurves"
-          v-model:activeTab="activeTab"
+          :activeTab="activeTab"
+          @update:activeTab="activeTab = $event"
+          @refresh-date="fetchRealData()"
           :bondTypes="bondTypes"
           :selectedDate="selectedDate"
           :prevDate="prevDate"
           :oneWeekAgoDate="oneWeekAgoDate"
+          :oneWeekAgoCurves="oneWeekAgoCurves"
         />
 
         <!-- View: Basis Monitoring -->
