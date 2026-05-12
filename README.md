@@ -43,7 +43,7 @@ pm2 start ecosystem.config.js
 ```
 
 - **前端访问端口**: `8503`
-- **后端 API 端口**: `8000`
+- **后端 API 端口**: `8504`
 
 ### 5. 常用命令
 - 查看状态: `pm2 list`
@@ -52,5 +52,5 @@ pm2 start ecosystem.config.js
 - 停止服务: `pm2 stop all`
 
 ## 注意事项
-- 请确保服务器防火墙开放了 **8503** 和 **8000** 端口。
-- 前端 API 地址在 `frontend/src/App.vue` 中配置，默认为 `localhost:8000`。若远程访问，请在构建前修改环境变量 `VITE_API_BASE_URL`。
+- 请确保服务器防火墙开放了 **8503** 和 **8504** 端口。
+- 前端 API 地址在 `frontend/src/App.vue` 中配置，默认为 `localhost:8504`。若远程访问，请在构建前修改环境变量 `VITE_API_BASE_URL`。

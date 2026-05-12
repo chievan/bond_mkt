@@ -10,7 +10,7 @@ const terms = ['1Y', '2Y', '3Y', '5Y', '7Y', '10Y', '30Y', '50Y']
 const bondTypes = ['国债', '国开债', '农发债', '口行债', '地方政府债'] // Order for the top tabs
 const sheets = ['成交情况', '中债利率曲线', '期现基差', '利差', '品种利差']
 
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8504'
 
 const currentSheet = ref('成交情况')
 const activeTab = ref('国债')
