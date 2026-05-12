@@ -3,9 +3,8 @@ module.exports = {
     {
       name: 'bond-backend',
       cwd: './backend',
-      script: 'uvicorn',
-      args: 'app.main:app --host 0.0.0.0 --port 8504',
-      interpreter: 'python3',
+      script: 'python3',
+      args: '-m uvicorn app.main:app --host 0.0.0.0 --port 8504',
       env: {
         NODE_ENV: 'production',
       },
