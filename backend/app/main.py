@@ -1,19 +1,19 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 from fastapi import FastAPI, Depends, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
+from sqlalchemy import create_engine, desc
+from sqlalchemy.orm import sessionmaker
 from typing import List, Optional, Dict
 import os
 from datetime import datetime, timedelta
-from dotenv import load_dotenv
-
-from .models.bond import Base, BondYield, BondSpread, BondQuantile, BenchmarkConfig, BondHistory
-from sqlalchemy import create_engine, desc
-from sqlalchemy.orm import sessionmaker
-from .services.iths import sync_all_curves, sync_bond_history
-from .services.ai import ai_service
 from pydantic import BaseModel
 
-load_dotenv()
+from .models.bond import Base, BondYield, BondSpread, BondQuantile, BenchmarkConfig, BondHistory
+from .services.iths import sync_all_curves, sync_bond_history
+from .services.ai import ai_service
 
 # SQLite Database Setup
 DATABASE_URL = "sqlite:///./data/bond_mkt.db"
