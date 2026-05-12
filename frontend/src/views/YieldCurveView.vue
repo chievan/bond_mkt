@@ -128,7 +128,7 @@ const multiCurveData = ref([])
 const fetchMultiCurve = async () => {
     try {
         // Fetch 6 days to get Latest (index 0) and 5-days-ago (index 5)
-        const resp = await fetch(`http://localhost:8504/yields/multi-history?bond_type=${props.activeTab}&limit=6`)
+        const resp = await fetch(`http://${window.location.hostname}:8504/yields/multi-history?bond_type=${props.activeTab}&limit=6`)
         multiCurveData.value = await resp.json()
         updateMainChart()
     } catch (e) {
@@ -280,7 +280,7 @@ const trendChart = shallowRef(null)
 
 const fetchHistory = async () => {
     try {
-        const resp = await fetch(`http://localhost:8504/history-yields?bond_type=${props.activeTab}&term=${selectedTerm.value}`)
+        const resp = await fetch(`http://${window.location.hostname}:8504/history-yields?bond_type=${props.activeTab}&term=${selectedTerm.value}`)
         historyData.value = await resp.json()
         updateTrendChart()
     } catch (e) {

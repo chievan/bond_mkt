@@ -64,7 +64,7 @@ const bondValuations = ref({}) // { date: { code: yield } }
 const fetchHistoryFromDB = async (code) => {
     if (!code) return
     try {
-        const res = await fetch(`http://localhost:8504/bond-history?code=${code}`)
+        const res = await fetch(`http://${window.location.hostname}:8504/bond-history?code=${code}`)
         const data = await res.json()
         historyData.value[code] = data
     } catch (e) {
@@ -82,7 +82,7 @@ const fetchSpecificValuations = async (date) => {
     
     if (codes.length === 0) return
     try {
-        const res = await fetch(`http://localhost:8504/bond-valuations-batch?codes=${codes.join(',')}&date=${date}`)
+        const res = await fetch(`http://${window.location.hostname}:8504/bond-valuations-batch?codes=${codes.join(',')}&date=${date}`)
         const data = await res.json()
         bondValuations.value = { 
             ...bondValuations.value, 
@@ -404,7 +404,7 @@ const fetchBenchmarks = async () => {
     // Fetch for ALL types to populate summary cards
     for (const type of props.bondTypes) {
         try {
-            const res = await fetch(`http://localhost:8504/benchmarks?bond_type=${type}`)
+            const res = await fetch(`http://${window.location.hostname}:8504/benchmarks?bond_type=${type}`)
             const data = await res.json()
             if (Object.keys(data).length > 0) {
                 allBenchmarks.value[type] = data
@@ -417,7 +417,7 @@ const fetchBenchmarks = async () => {
 
 const saveBenchmarks = async () => {
     try {
-        await fetch(`http://localhost:8504/benchmarks/save`, {
+        await fetch(`http://${window.location.hostname}:8504/benchmarks/save`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -433,7 +433,7 @@ const saveBenchmarks = async () => {
 const syncHistory = async (codes) => {
     if (!codes || codes.length === 0) return
     try {
-        await fetch(`http://localhost:8504/sync-bond-history`, {
+        await fetch(`http://${window.location.hostname}:8504/sync-bond-history`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(codes)
