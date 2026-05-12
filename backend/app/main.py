@@ -108,59 +108,81 @@ def get_yields(date: Optional[str] = Query(None), db: Session = Depends(get_db))
         "y20": "20Y", "y30": "30Y", "y40": "40Y", "y50": "50Y"
     }
 
-    # Find a global prev_date for display (use the first record's prev_date)
-    display_prev_date = None
+    # 1. 寻找真正的“上一个交易日”（有数据的）
+    prev_date_rec = db.query(BondYield.date).filter(
+        BondYield.date < target_date,
+        BondYield.y10 > 0
+    ).order_by(BondYield.date.desc()).first()
+    display_prev_date = prev_date_rec[0].strftime("%Y-%m-%d") if prev_date_rec else None
+
+    # 2. 寻找真正的“一周前”（往前数第 5 个有数据的交易日）
+    one_week_rec = db.query(BondYield.date).filter(
+        BondYield.date < target_date,
+        BondYield.y10 > 0
+    ).order_by(BondYield.date.desc()).offset(4).limit(1).first()
+    one_week_ago_date = one_week_rec[0].strftime("%Y-%m-%d") if one_week_rec else None
+
+    result_curves = {}
+    one_week_ago_curves = {}
     
     for rec in records:
-        # 1. Find the most recent date before target_date that has ANY data for this bond_type
-        prev_date_rec = db.query(BondYield.date).filter(
-            BondYield.date < target_date,
-            BondYield.bond_type == rec.bond_type
-        ).order_by(BondYield.date.desc()).first()
-        
-        prev_date = prev_date_rec[0] if prev_date_rec else None
-        if not display_prev_date:
-            display_prev_date = prev_date.strftime("%Y-%m-%d") if prev_date else None
-        
-        # 2. Fetch all values for that specific previous date
+        # Fetch actual values for the identified previous date
         prev_rec = None
-        if prev_date:
+        if display_prev_date:
             prev_rec = db.query(BondYield).filter(
-                BondYield.date == prev_date,
+                BondYield.date == display_prev_date,
                 BondYield.bond_type == rec.bond_type
             ).first()
-            
-        # 3. Fetch last 250 trading days for this bond type to calculate percentiles
+        
+        # Fetch actual values for one week ago
+        one_week_rec = None
+        if one_week_ago_date:
+            one_week_rec = db.query(BondYield).filter(
+                BondYield.date == one_week_ago_date,
+                BondYield.bond_type == rec.bond_type
+            ).first()
+        
+        # Fetch last 250 trading days for this bond type to calculate percentiles
         history_250 = db.query(BondYield).filter(BondYield.bond_type == rec.bond_type)\
             .order_by(BondYield.date.desc()).limit(250).all()
         
         points = []
+        ago_points = []
         for field, term in terms_map.items():
             val = getattr(rec, field)
             if val is not None:
                 prev_val = getattr(prev_rec, field) if prev_rec else val
                 change_bp = (val - prev_val) * 100
                 
-                # Dynamic Percentile Calculation
+                # Calculate percentile
                 hist_vals = [getattr(h, field) for h in history_250 if getattr(h, field) is not None]
+                percentile = 0.5
                 if hist_vals:
-                    percentile = sum(1 for v in hist_vals if v < val) / len(hist_vals)
-                else:
-                    percentile = 0.5
+                    smaller = len([v for v in hist_vals if v < val])
+                    percentile = smaller / len(hist_vals)
                 
                 points.append({
                     "term": term,
-                    "yield": val,
-                    "prev_yield": prev_val,
+                    "yield": round(val, 4),
+                    "prev_yield": round(prev_val, 4),
                     "change": round(change_bp, 2),
                     "percentile": round(percentile, 4)
                 })
-        curves[rec.bond_type] = points
+                
+                # Also collect data for one week ago curve
+                ago_val = getattr(one_week_rec, field) if one_week_rec else None
+                if ago_val is not None:
+                    ago_points.append({"term": term, "yield": round(ago_val, 4)})
+        
+        result_curves[rec.bond_type] = points
+        one_week_ago_curves[rec.bond_type] = ago_points
 
     return {
-        "curves": curves, 
         "date": target_date.strftime("%Y-%m-%d"),
-        "prev_date": display_prev_date
+        "prev_date": display_prev_date,
+        "one_week_ago_date": one_week_ago_date,
+        "curves": result_curves,
+        "one_week_ago_curves": one_week_ago_curves
     }
 
 @app.get("/history-yields")

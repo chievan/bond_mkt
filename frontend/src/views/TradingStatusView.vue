@@ -544,6 +544,7 @@ watch(() => [props.allCurves, props.oneWeekAgoCurves, props.activeTab, selectedT
           <div class="flex items-center justify-between text-[10px] font-black tracking-widest uppercase">
             <div class="flex items-center gap-2 text-slate-500">
               <span class="text-amber-500">10Y</span> {{ type }}
+              <span class="text-[9px] text-slate-500 font-mono bg-slate-800/50 px-1 rounded ml-1">{{ allBenchmarks[type]?.['10Y'] || '-' }}</span>
             </div>
             <span class="text-slate-600 font-bold ml-2">{{ formatDateShort(selectedDate) }}</span>
           </div>
@@ -572,7 +573,7 @@ watch(() => [props.allCurves, props.oneWeekAgoCurves, props.activeTab, selectedT
                 <div class="flex items-center gap-3">
                   <span v-if="syncStatus" class="text-[10px] font-bold text-amber-500 animate-pulse bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">{{ syncStatus }}</span>
                   <button 
-                    @click="syncHistory(Object.values(allBenchmarks[activeTab]))"
+                    @click="syncHistory(Object.values(allBenchmarks).flatMap(typeMap => Object.values(typeMap)))"
                     class="text-[9px] font-bold text-amber-500 bg-amber-500/5 hover:bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 uppercase tracking-widest transition-all active:scale-95"
                   >
                     更新所有标的券历史
