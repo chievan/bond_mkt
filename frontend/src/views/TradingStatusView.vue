@@ -436,11 +436,14 @@ const syncHistory = async (codes) => {
     const validCodes = codes.filter(c => c && c.length > 0)
     if (validCodes.length === 0) return
 
-    syncStatus.value = `准备同步 ${validCodes.length} 只债券...`
+    syncStatus.value = `正在同步 ${props.selectedDate} 收益率曲线...`
     
     try {
+        // 1. 先同步当天的收益率曲线（确保估值有数）
+        await fetch(`http://${window.location.hostname}:8504/sync?date=${props.selectedDate}`, { method: 'POST' })
+
         for (const code of validCodes) {
-            syncStatus.value = `正在同步 ${code} ...`
+            syncStatus.value = `正在同步 ${code} 成交历史...`
             await fetch(`http://${window.location.hostname}:8504/sync-bond-history`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
