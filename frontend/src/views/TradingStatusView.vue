@@ -64,7 +64,7 @@ const bondValuations = ref({}) // { date: { code: yield } }
 const fetchHistoryFromDB = async (code) => {
     if (!code) return
     try {
-        const res = await fetch(`http://localhost:8000/bond-history?code=${code}`)
+        const res = await fetch(`http://localhost:8504/bond-history?code=${code}`)
         const data = await res.json()
         historyData.value[code] = data
     } catch (e) {
@@ -82,7 +82,7 @@ const fetchSpecificValuations = async (date) => {
     
     if (codes.length === 0) return
     try {
-        const res = await fetch(`http://localhost:8000/bond-valuations-batch?codes=${codes.join(',')}&date=${date}`)
+        const res = await fetch(`http://localhost:8504/bond-valuations-batch?codes=${codes.join(',')}&date=${date}`)
         const data = await res.json()
         bondValuations.value = { 
             ...bondValuations.value, 
@@ -404,7 +404,7 @@ const fetchBenchmarks = async () => {
     // Fetch for ALL types to populate summary cards
     for (const type of props.bondTypes) {
         try {
-            const res = await fetch(`http://localhost:8000/benchmarks?bond_type=${type}`)
+            const res = await fetch(`http://localhost:8504/benchmarks?bond_type=${type}`)
             const data = await res.json()
             if (Object.keys(data).length > 0) {
                 allBenchmarks.value[type] = data
@@ -417,7 +417,7 @@ const fetchBenchmarks = async () => {
 
 const saveBenchmarks = async () => {
     try {
-        await fetch(`http://localhost:8000/benchmarks/save`, {
+        await fetch(`http://localhost:8504/benchmarks/save`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -433,7 +433,7 @@ const saveBenchmarks = async () => {
 const syncHistory = async (codes) => {
     if (!codes || codes.length === 0) return
     try {
-        await fetch(`http://localhost:8000/sync-bond-history`, {
+        await fetch(`http://localhost:8504/sync-bond-history`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(codes)
@@ -541,7 +541,15 @@ watch(() => [props.allCurves, props.oneWeekAgoCurves, props.activeTab, selectedT
                     <div class="w-1.5 h-3.5 bg-amber-500 rounded-full shadow-[0_0_8px_#f59e0b]"></div>
                     <span class="text-[11px] font-black text-white uppercase tracking-widest">{{ activeTab }} 成交情况监控</span>
                 </div>
-                <div class="text-[10px] text-slate-500 font-bold bg-amber-500/5 px-2 py-0.5 rounded border border-amber-500/10 uppercase tracking-widest">LIVE TRADING DATA</div>
+                <div class="flex items-center gap-3">
+                  <button 
+                    @click="syncHistory(Object.values(allBenchmarks[activeTab]))"
+                    class="text-[9px] font-bold text-amber-500 bg-amber-500/5 hover:bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20 uppercase tracking-widest transition-all active:scale-95"
+                  >
+                    更新所有标的券历史
+                  </button>
+                  <div class="text-[10px] text-slate-500 font-bold bg-amber-500/5 px-2 py-0.5 rounded border border-amber-500/10 uppercase tracking-widest">LIVE TRADING DATA</div>
+                </div>
             </div>
 
             <div class="grid grid-cols-12 gap-3">
